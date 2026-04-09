@@ -383,6 +383,12 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
 
     const headers = ["Fecha", "Paciente", "Disciplina", "Hora Inicio", "Hora Fin", "Horas Trabajadas", "Tarifa Visita ($)", "Millas", "Reembolso Millas ($)", "Ingreso Total ($)", "Tarifa Real/Hr ($)", "Notas", "Período (Nómina)", "Fecha Estimada Cobro"];
     
+    const tVisitas = filtered.length;
+    const tIngresos = filtered.reduce((sum, v) => sum + v.ingresoTotal, 0);
+    const tHoras = filtered.reduce((sum, v) => sum + v.horas, 0);
+    let avgHora = 0;
+    if (tHoras > 0) avgHora = tIngresos / tHoras;
+
     let csvContent = "data:text/csv;charset=utf-8," 
         + headers.join(",") + "\n"
         + filtered.map(v => {
@@ -390,6 +396,8 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
             const vPeriod = getPayPeriodInfo(v.fecha);
             return `"${v.fecha}","${v.paciente}","${v.disciplina}","${v.hInicio}","${v.hFin}","${v.horas.toFixed(2)}","${v.baseRate.toFixed(2)}","${v.millas.toFixed(1)}","${v.ingresoMillas.toFixed(2)}","${v.ingresoTotal.toFixed(2)}","${hrRate}","${(v.notas || "").replace(/"/g, '""')}","${vPeriod.label}","${vPeriod.readablePayDate}"`;
         }).join("\n");
+        
+    csvContent += `\n"TOTALES","${tVisitas} Visitas","","","","${tHoras.toFixed(2)}","","","","${tIngresos.toFixed(2)}","${avgHora.toFixed(2)}","","",""`;
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -435,12 +443,24 @@ document.getElementById('exportPdfBtn').addEventListener('click', () => {
         `$${v.ingresoTotal.toFixed(2)}`
     ]);
 
+    const tVisitas = filtered.length;
+    const tIngresos = filtered.reduce((sum, v) => sum + v.ingresoTotal, 0);
+    const tHoras = filtered.reduce((sum, v) => sum + v.horas, 0);
+    let avgHora = 0;
+    if (tHoras > 0) avgHora = tIngresos / tHoras;
+
+    const footers = [
+        ["TOTALES", `${tVisitas} Visitas`, `Promedio: $${avgHora.toFixed(2)}/hr`, tHoras.toFixed(2), "", "", `$${tIngresos.toFixed(2)}`]
+    ];
+
     doc.autoTable({
         startY: startY,
         head: headers,
         body: data,
+        foot: footers,
         theme: 'grid',
         headStyles: { fillColor: [43, 108, 176] },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
         styles: { fontSize: 10 }
     });
 
