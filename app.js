@@ -313,25 +313,14 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     const filtered = getFilteredVisits();
     if (filtered.length === 0) return alert("No hay datos en este período para exportar.");
 
-    // Build metadata header rows
-    let metaRows = "";
-    if (currentFilterMode === 'all') {
-        metaRows = `"Reporte","Todo el Historial"\n\n`;
-    } else {
-        const cycleMeta = allGeneratedCycles[currentFilterMode] || todayCycle;
-        metaRows = `"Período de Pago","${cycleMeta.label}"\n`;
-        metaRows += `"📅 Fecha de Cobro","${cycleMeta.readablePayDate}"\n`;
-        metaRows += `"Total Ingresos del Período","${formatMoney(filtered.reduce((s,v) => s + v.ingresoTotal, 0))}"\n\n`;
-    }
-
-    const headers = ["Fecha", "Paciente", "Disciplina", "Hora Inicio", "Hora Fin", "Horas Trabajadas", "Tarifa Visita ($)", "Millas", "Reembolso Millas ($)", "Ingreso Total ($)", "Tarifa Real/Hr ($)", "Notas"];
+    const headers = ["Fecha", "Paciente", "Disciplina", "Hora Inicio", "Hora Fin", "Horas Trabajadas", "Tarifa Visita ($)", "Millas", "Reembolso Millas ($)", "Ingreso Total ($)", "Tarifa Real/Hr ($)", "Notas", "Período (Nómina)", "Fecha Estimada Cobro"];
     
     let csvContent = "data:text/csv;charset=utf-8," 
-        + metaRows
         + headers.join(",") + "\n"
         + filtered.map(v => {
             const hrRate = v.horas > 0 ? (v.ingresoTotal / v.horas).toFixed(2) : "0.00";
-            return `"${v.fecha}","${v.paciente}","${v.disciplina}","${v.hInicio}","${v.hFin}","${v.horas.toFixed(2)}","${v.baseRate.toFixed(2)}","${v.millas.toFixed(1)}","${v.ingresoMillas.toFixed(2)}","${v.ingresoTotal.toFixed(2)}","${hrRate}","${(v.notas || "").replace(/"/g, '""')}"`;
+            const vPeriod = getPayPeriodInfo(v.fecha);
+            return `"${v.fecha}","${v.paciente}","${v.disciplina}","${v.hInicio}","${v.hFin}","${v.horas.toFixed(2)}","${v.baseRate.toFixed(2)}","${v.millas.toFixed(1)}","${v.ingresoMillas.toFixed(2)}","${v.ingresoTotal.toFixed(2)}","${hrRate}","${(v.notas || "").replace(/"/g, '""')}","${vPeriod.label}","${vPeriod.readablePayDate}"`;
         }).join("\n");
 
     const encodedUri = encodeURI(csvContent);
