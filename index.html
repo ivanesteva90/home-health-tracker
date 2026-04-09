@@ -9,6 +9,10 @@
     <!-- Ionicons for beautiful icons -->
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    
+    <!-- jsPDF libraries for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -18,9 +22,14 @@
                 <h1>Home Health Tracker</h1>
                 <p>Tu control de ingresos personal</p>
             </div>
-            <button id="exportBtn" class="btn btn-outline" title="Exportar a CSV / Excel">
-                <ion-icon name="download-outline"></ion-icon> Exportar
-            </button>
+            <div class="export-actions" style="display:flex; gap:10px;">
+                <button id="exportCsvBtn" class="btn btn-outline" title="Exportar a CSV / Excel" style="background:white; border-color:var(--border);">
+                    <ion-icon name="document-text-outline"></ion-icon> CSV
+                </button>
+                <button id="exportPdfBtn" class="btn btn-primary" title="Exportar a PDF" style="padding: 0.5rem 1rem; border-radius:8px;">
+                    <ion-icon name="document-outline"></ion-icon> PDF
+                </button>
+            </div>
         </header>
 
         <!-- KPI Dashboard -->

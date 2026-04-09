@@ -309,7 +309,7 @@ document.getElementById('clearAllBtn').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const filtered = getFilteredVisits();
     if (filtered.length === 0) return alert("No hay datos en este período para exportar.");
 
@@ -333,6 +333,51 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+});
+
+// Event: Export PDF
+document.getElementById('exportPdfBtn').addEventListener('click', () => {
+    const filtered = getFilteredVisits();
+    if (filtered.length === 0) return alert("No hay datos en este período para exportar a PDF.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    const periodName = currentFilterMode === 'all' ? "Todo el Historial" : allGeneratedCycles[currentFilterMode].label;
+    
+    doc.setFontSize(16);
+    doc.text("Home Health Tracker - Reporte de Ingresos", 14, 15);
+    doc.setFontSize(11);
+    doc.text(`Período de Facturación: ${periodName}`, 14, 22);
+    
+    if(currentFilterMode !== 'all') {
+        doc.text(`Fecha Estimada de Cobro: ${allGeneratedCycles[currentFilterMode].readablePayDate}`, 14, 28);
+    }
+
+    const startY = currentFilterMode === 'all' ? 28 : 34;
+
+    const headers = [["Fecha", "Paciente", "Disciplina", "Hrs", "Tarifa Base", "Millas", "Ingreso Total"]];
+    const data = filtered.map(v => [
+        v.fecha,
+        v.paciente,
+        v.disciplina,
+        v.horas > 0 ? v.horas.toFixed(2) : "-",
+        `$${v.baseRate.toFixed(2)}`,
+        v.millas.toFixed(1),
+        `$${v.ingresoTotal.toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+        startY: startY,
+        head: headers,
+        body: data,
+        theme: 'grid',
+        headStyles: { fillColor: [43, 108, 176] },
+        styles: { fontSize: 10 }
+    });
+
+    const fileName = currentFilterMode === 'all' ? "HomeHealth_Report.pdf" : `HomeHealth_${periodName.replace(/ /g,'_')}.pdf`;
+    doc.save(fileName);
 });
 
 init();
