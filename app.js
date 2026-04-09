@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
-    getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, query, orderBy 
+    getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ====== CONFIGURacion REAL DE FIREBASE ======
@@ -46,8 +46,10 @@ const visitRates = [
 ];
 
 // App State
+// App State
 let visits = [];
 let mileRate = parseFloat(localStorage.getItem('hh_mile_rate')) || 0.67;
+let editingVisitId = null;
 
 // --- PAYROLL ENGINE ---
 const EPOCH_DATE = new Date("2025-10-18T12:00:00Z"); // Use noon to avoid timezone shift
@@ -100,11 +102,11 @@ const kpiPayDate = document.getElementById('kpiPayDate');
 
 // Initialize App
 function init() {
+    const dataList = document.getElementById('disciplinaList');
     visitRates.forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v.rate;
-        opt.textContent = v.name;
-        selDisciplina.appendChild(opt);
+        opt.value = v.name;
+        dataList.appendChild(opt);
     });
 
     document.getElementById('fecha').valueAsDate = new Date();
@@ -159,9 +161,14 @@ const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-selDisciplina.addEventListener('change', (e) => {
-    const rate = parseFloat(e.target.value);
-    txtTarifaPreview.textContent = formatMoney(rate);
+selDisciplina.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    const found = visitRates.find(v => v.name === val);
+    if (found) {
+        txtTarifaPreview.textContent = formatMoney(found.rate);
+    } else {
+        txtTarifaPreview.textContent = '$0.00';
+    }
 });
 
 document.getElementById('saveRateBtn').addEventListener('click', () => {
@@ -185,18 +192,24 @@ function getHoursDiff(start, end) {
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btnSubmit = form.querySelector('button[type="submit"]');
-    btnSubmit.textContent = "Grabando nube...";
+    btnSubmit.textContent = editingVisitId ? "Actualizando nube..." : "Grabando nube...";
     btnSubmit.disabled = true;
 
     try {
         const fecha = document.getElementById('fecha').value;
         const paciente = document.getElementById('paciente').value;
-        const disciplinaSelect = selDisciplina.options[selDisciplina.selectedIndex];
-        const baseRate = parseFloat(disciplinaSelect.value);
+        const disciplinaText = selDisciplina.value.trim();
         
+        const foundRate = visitRates.find(v => v.name === disciplinaText);
+        if (!foundRate) {
+            btnSubmit.textContent = editingVisitId ? "Actualizar Visita" : "Guardar Visita";
+            btnSubmit.disabled = false;
+            return alert("Por favor, selecciona o escribe un Tipo de Visita válido de la lista.");
+        }
+        
+        const baseRate = foundRate.rate;
         const hInicio = document.getElementById('horaInicio').value;
         const hFin = document.getElementById('horaFin').value;
-        
         const millas = parseFloat(document.getElementById('millas').value) || 0;
         const notas = document.getElementById('notas').value;
 
@@ -204,26 +217,52 @@ form.addEventListener('submit', async (e) => {
         const ingresoMillas = millas * mileRate;
         const ingresoTotal = baseRate + ingresoMillas;
 
-        await addDoc(collection(db, "visits"), {
-            fecha, paciente, disciplina: disciplinaSelect.text,
+        const payload = {
+            fecha, paciente, disciplina: disciplinaText,
             hInicio, hFin, horas, baseRate, millas, ingresoMillas,
-            ingresoTotal, notas, createdAt: Date.now()
-        });
+            ingresoTotal, notas, updatedAt: Date.now()
+        };
 
-        document.getElementById('paciente').value = '';
-        selDisciplina.selectedIndex = 0;
-        document.getElementById('horaInicio').value = '';
-        document.getElementById('horaFin').value = '';
-        document.getElementById('millas').value = '';
-        document.getElementById('notas').value = '';
+        if (editingVisitId) {
+            await updateDoc(doc(db, "visits", editingVisitId), payload);
+            
+            // Exit edit mode
+            editingVisitId = null;
+            btnSubmit.classList.remove('btn-warning');
+            btnSubmit.style.backgroundColor = 'var(--primary)';
+            btnSubmit.style.color = 'white';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        } else {
+            payload.createdAt = Date.now();
+            await addDoc(collection(db, "visits"), payload);
+        }
+
+        form.reset();
+        document.getElementById('fecha').valueAsDate = new Date();
         txtTarifaPreview.textContent = '$0.00';
+
     } catch(e) {
         alert("Error nube: Verifica conexión.");
         console.error(e);
     } finally {
-        btnSubmit.textContent = "Guardar Visita";
+        btnSubmit.textContent = editingVisitId ? "Actualizar Visita" : "Guardar Visita";
         btnSubmit.disabled = false;
     }
+});
+
+// Event: Cancel Edit
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+    editingVisitId = null;
+    form.reset();
+    document.getElementById('fecha').valueAsDate = new Date();
+    selDisciplina.dispatchEvent(new Event('input'));
+    
+    const btnSubmit = document.getElementById('submitVisitBtn');
+    btnSubmit.textContent = "Guardar Visita";
+    btnSubmit.classList.remove('btn-warning');
+    btnSubmit.style.backgroundColor = 'var(--primary)';
+    
+    document.getElementById('cancelEditBtn').style.display = 'none';
 });
 
 function getFilteredVisits() {
@@ -261,7 +300,10 @@ function renderData() {
                 <td>${v.paciente}</td>
                 <td>${v.disciplina}</td>
                 <td style="color:var(--success); font-weight:700;">${formatMoney(v.ingresoTotal)}</td>
-                <td>
+                <td style="white-space: nowrap;">
+                    <button class="btn btn-icon" onclick="editVisit('${v.id}')" title="Editar" style="color:var(--primary); background:#e3f2fd; margin-right:5px;">
+                        <ion-icon name="pencil"></ion-icon>
+                    </button>
                     <button class="btn btn-icon btn-danger" onclick="deleteVisit('${v.id}')" title="Borrar Nube">
                         <ion-icon name="trash"></ion-icon>
                     </button>
@@ -298,6 +340,32 @@ window.deleteVisit = async (id) => {
     if (confirm("¿Borrar permanentemente este registro de la base de datos?")) {
         await deleteDoc(doc(db, "visits", id));
     }
+};
+
+window.editVisit = (id) => {
+    const v = visits.find(visit => visit.id === id);
+    if (!v) return;
+    
+    document.getElementById('fecha').value = v.fecha;
+    document.getElementById('paciente').value = v.paciente;
+    selDisciplina.value = v.disciplina;
+    document.getElementById('horaInicio').value = v.hInicio;
+    document.getElementById('horaFin').value = v.hFin;
+    document.getElementById('millas').value = v.millas || '';
+    document.getElementById('notas').value = v.notas || '';
+    
+    selDisciplina.dispatchEvent(new Event('input'));
+    
+    editingVisitId = id;
+    
+    const btnSubmit = document.getElementById('submitVisitBtn');
+    btnSubmit.textContent = "Actualizar Visita";
+    btnSubmit.style.backgroundColor = '#fb8c00'; // Orange
+    btnSubmit.style.borderColor = '#fb8c00'; 
+    
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 document.getElementById('clearAllBtn').addEventListener('click', async () => {
