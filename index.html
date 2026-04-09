@@ -145,8 +145,14 @@
                         <thead>
                             <tr>
                                 <th>Fecha</th>
-                                <th>Paciente</th>
-                                <th>Disciplina</th>
+                                <th>
+                                    Paciente
+                                    <input type="text" id="filterPaciente" class="table-filter" placeholder="🔍 Paciente..." autocomplete="off">
+                                </th>
+                                <th>
+                                    Disciplina
+                                    <input type="text" id="filterDisciplina" class="table-filter" placeholder="🔍 Disciplina..." autocomplete="off">
+                                </th>
                                 <th>Ingreso Total</th>
                                 <th>Acción</th>
                             </tr>
@@ -173,6 +179,6 @@
         </footer>
     </div>
     
-    <script type="module" src="app.js?v=totals_footer"></script>
+    <script type="module" src="app.js?v=column_filters_1"></script>
 </body>
 </html>

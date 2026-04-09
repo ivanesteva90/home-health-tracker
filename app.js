@@ -89,6 +89,10 @@ const todayCycle = getPayPeriodInfo(todayStr);
 
 let currentFilterMode = todayCycle.id;
 let allGeneratedCycles = {};
+let columnFilters = {
+    paciente: "",
+    disciplina: ""
+};
 
 // DOM Elements
 const form = document.getElementById('visitForm');
@@ -99,6 +103,8 @@ const emptyState = document.getElementById('emptyState');
 const tableContainer = document.querySelector('.table-container');
 const periodSelect = document.getElementById('periodSelect');
 const kpiPayDate = document.getElementById('kpiPayDate');
+const filterPaciente = document.getElementById('filterPaciente');
+const filterDisciplina = document.getElementById('filterDisciplina');
 
 // Initialize App
 function init() {
@@ -139,6 +145,16 @@ function init() {
     // Event for Filter
     periodSelect.addEventListener('change', (e) => {
         currentFilterMode = e.target.value;
+        renderData();
+    });
+
+    filterPaciente.addEventListener('input', (e) => {
+        columnFilters.paciente = e.target.value.toLowerCase().trim();
+        renderData();
+    });
+
+    filterDisciplina.addEventListener('input', (e) => {
+        columnFilters.disciplina = e.target.value.toLowerCase().trim();
         renderData();
     });
 
@@ -267,9 +283,23 @@ document.getElementById('cancelEditBtn').addEventListener('click', () => {
 
 function getFilteredVisits() {
     return visits.filter(v => {
-        if (currentFilterMode === 'all') return true;
-        const vCycle = getPayPeriodInfo(v.fecha);
-        return vCycle.id === currentFilterMode;
+        let pMatch = true;
+        if (currentFilterMode !== 'all') {
+            const vCycle = getPayPeriodInfo(v.fecha);
+            pMatch = (vCycle.id === currentFilterMode);
+        }
+        
+        let pacMatch = true;
+        let discMatch = true;
+        
+        if (columnFilters.paciente) {
+            pacMatch = v.paciente.toLowerCase().includes(columnFilters.paciente);
+        }
+        if (columnFilters.disciplina) {
+            discMatch = v.disciplina.toLowerCase().includes(columnFilters.disciplina);
+        }
+        
+        return pMatch && pacMatch && discMatch;
     });
 }
 
@@ -403,7 +433,9 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     
-    const fileName = currentFilterMode === 'all' ? "HomeHealth_TODO_Historial.csv" : `HomeHealth_${allGeneratedCycles[currentFilterMode].label.replace(/ /g,'_')}.csv`;
+    let extraLabel = "";
+    if (columnFilters.paciente) extraLabel += `_${columnFilters.paciente.toUpperCase()}`;
+    const fileName = currentFilterMode === 'all' ? `HomeHealth_TODO_Historial${extraLabel}.csv` : `HomeHealth_${allGeneratedCycles[currentFilterMode].label.replace(/ /g,'_')}${extraLabel}.csv`;
     link.setAttribute("download", fileName);
     
     document.body.appendChild(link);
@@ -464,7 +496,9 @@ document.getElementById('exportPdfBtn').addEventListener('click', () => {
         styles: { fontSize: 10 }
     });
 
-    const fileName = currentFilterMode === 'all' ? "HomeHealth_Report.pdf" : `HomeHealth_${periodName.replace(/ /g,'_')}.pdf`;
+    let extraLabel = "";
+    if (columnFilters.paciente) extraLabel += `_${columnFilters.paciente.toUpperCase()}`;
+    const fileName = currentFilterMode === 'all' ? `HomeHealth_Report${extraLabel}.pdf` : `HomeHealth_${periodName.replace(/ /g,'_')}${extraLabel}.pdf`;
     doc.save(fileName);
 });
 
