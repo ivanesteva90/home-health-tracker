@@ -10,8 +10,8 @@ const firebaseConfig = {
   projectId: "home-health-tracker-a3561",
   storageBucket: "home-health-tracker-a3561.firebasestorage.app",
   messagingSenderId: "997700552839",
-  appId: "1:997700552839:web:ed6b7d8b63727328d11022",
-  measurementId: "G-2LYZQMQMDL"
+  appId: "1:997700552839:web:07fbc6d1bf6ffe08d11022",
+  measurementId: "G-X673Y7B1KG"
 };
 
 // Inicializar Firebase
