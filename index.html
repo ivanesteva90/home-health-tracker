@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Health Tracker Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Ionicons for beautiful icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Home Health Tracker</h1>
+                <p>Tu control de ingresos personal</p>
+            </div>
+            <button id="exportBtn" class="btn btn-outline" title="Exportar a CSV / Excel">
+                <ion-icon name="download-outline"></ion-icon> Exportar
+            </button>
+        </header>
+
+        <!-- KPI Dashboard -->
+        <section class="dashboard">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon"><ion-icon name="people-outline"></ion-icon></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">Total Visitas</span>
+                    <span class="kpi-value" id="kpiVisitas">0</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">Ingresos Totales</span>
+                    <span class="kpi-value" id="kpiIngresos">$0.00</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon"><ion-icon name="car-sport-outline"></ion-icon></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">Millas Recorridas</span>
+                    <span class="kpi-value" id="kpiMillas">0.0</span>
+                </div>
+            </div>
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-icon"><ion-icon name="time-outline"></ion-icon></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">Promedio / Hora</span>
+                    <span class="kpi-value" id="kpiHora">$0.00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Form Section -->
+            <section class="card form-section">
+                <h2><ion-icon name="add-circle"></ion-icon> Registrar Nueva Visita</h2>
+                <form id="visitForm">
+                    <div class="form-group">
+                        <label for="fecha">Fecha</label>
+                        <input type="date" id="fecha" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paciente">Nombre del Paciente</label>
+                        <input type="text" id="paciente" placeholder="Ej. Juan Pérez" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="disciplina">Tipo de Visita (Disciplina)</label>
+                        <select id="disciplina" required>
+                            <option value="" disabled selected>Selecciona una opción...</option>
+                            <!-- Options injected via JS -->
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="horaInicio">Hora Inicio</label>
+                            <input type="time" id="horaInicio" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="horaFin">Hora Fin</label>
+                            <input type="time" id="horaFin" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="millas">Millas Recorridas (Opcional)</label>
+                            <input type="number" id="millas" step="0.1" min="0" placeholder="0">
+                        </div>
+                        <div class="form-group rate-display">
+                            <label>Tarifa Seleccionada:</label>
+                            <div class="display-value" id="tarifaPreview">$0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notas">Notas / Comentarios</label>
+                        <textarea id="notas" rows="2" placeholder="Información adicional..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">Guardar Visita</button>
+                    <p class="form-caption">Los datos se guardan de forma segura en este dispositivo.</p>
+                </form>
+            </section>
+
+            <!-- History Section -->
+            <section class="card history-section">
+                <div class="history-header">
+                    <h2><ion-icon name="list"></ion-icon> Historial de Visitas</h2>
+                    <button class="btn btn-icon btn-danger" id="clearAllBtn" title="Borrar Todo">
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Paciente</th>
+                                <th>Disciplina</th>
+                                <th>Ingreso Total</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="empty-state">
+                    <ion-icon name="document-text-outline"></ion-icon>
+                    <p>No hay visitas registradas aún.</p>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Settings Footer -->
+        <footer class="footer">
+            <div class="settings-group">
+                <label for="mileRate">Tarifa Reembolso por Milla ($):</label>
+                <input type="number" id="mileRate" step="0.01" value="0.67" class="small-input">
+                <button id="saveRateBtn" class="btn btn-small">Guardar</button>
+            </div>
+        </footer>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
