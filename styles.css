@@ -241,25 +241,11 @@ th { background-color: #f8fafc; font-weight: 600; color: var(--text-muted); }
 td { color: var(--text-main); }
 tbody tr:hover { background-color: #f1f5f9; }
 
-.table-filter {
-    display: block;
-    width: 100%;
-    margin-top: 8px;
-    padding: 6px 10px;
-    font-size: 13px;
-    font-family: var(--font-family);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background-color: #ffffff;
-    font-weight: normal;
-    color: var(--text-main);
-    transition: all 0.2s ease;
-}
-.table-filter:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
+.sortable { cursor: pointer; user-select: none; transition: color 0.2s; white-space: nowrap; }
+.sortable:hover { color: var(--primary); }
+.sort-icon { font-size: 14px; margin-left: 4px; vertical-align: text-bottom; color: #cbd5e1; }
+th.active-sort { color: var(--primary); }
+th.active-sort .sort-icon { color: var(--primary); }
 
 .empty-state {
     display: none; /* hidden by JS */

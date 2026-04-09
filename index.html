@@ -133,27 +133,24 @@
 
             <!-- History Section -->
             <section class="card history-section">
-                <div class="history-header">
-                    <h2><ion-icon name="list"></ion-icon> Historial de Visitas</h2>
-                    <button class="btn btn-icon btn-danger" id="clearAllBtn" title="Borrar Todo">
-                        <ion-icon name="trash-outline"></ion-icon>
-                    </button>
+                <div class="history-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+                    <h2 style="margin:0; border:none; padding:0;"><ion-icon name="list"></ion-icon> Historial </h2>
+                    <div class="history-actions" style="display:flex; gap:10px; flex:1; justify-content:flex-end;">
+                        <input type="text" id="tableSearch" placeholder="🔍 Buscar nombre, disciplina..." style="max-width:220px; padding:8px 12px; border-radius:8px; border:1px solid var(--border-color); font-size:14px; outline:none;">
+                        <button class="btn btn-icon btn-danger" id="clearAllBtn" title="Borrar Todo">
+                            <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="table-container">
                     <table id="historyTable">
                         <thead>
                             <tr>
-                                <th>Fecha</th>
-                                <th>
-                                    Paciente
-                                    <input type="text" id="filterPaciente" class="table-filter" placeholder="🔍 Paciente..." autocomplete="off">
-                                </th>
-                                <th>
-                                    Disciplina
-                                    <input type="text" id="filterDisciplina" class="table-filter" placeholder="🔍 Disciplina..." autocomplete="off">
-                                </th>
-                                <th>Ingreso Total</th>
+                                <th class="sortable active-sort" data-sort="fecha">Fecha <ion-icon name="chevron-down-outline" class="sort-icon"></ion-icon></th>
+                                <th class="sortable" data-sort="paciente">Paciente <ion-icon name="swap-vertical-outline" class="sort-icon"></ion-icon></th>
+                                <th class="sortable" data-sort="disciplina">Disciplina <ion-icon name="swap-vertical-outline" class="sort-icon"></ion-icon></th>
+                                <th class="sortable" data-sort="ingresoTotal">Ingreso Total <ion-icon name="swap-vertical-outline" class="sort-icon"></ion-icon></th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -179,6 +176,6 @@
         </footer>
     </div>
     
-    <script type="module" src="app.js?v=column_filters_1"></script>
+    <script type="module" src="app.js?v=table_sort_search"></script>
 </body>
 </html>

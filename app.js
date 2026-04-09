@@ -51,6 +51,10 @@ let visits = [];
 let mileRate = parseFloat(localStorage.getItem('hh_mile_rate')) || 0.67;
 let editingVisitId = null;
 
+let tableSearchQuery = "";
+let sortColumn = "fecha";
+let sortAscending = false;
+
 // --- PAYROLL ENGINE ---
 const EPOCH_DATE = new Date("2025-10-18T12:00:00Z"); // Use noon to avoid timezone shift
 
@@ -89,10 +93,6 @@ const todayCycle = getPayPeriodInfo(todayStr);
 
 let currentFilterMode = todayCycle.id;
 let allGeneratedCycles = {};
-let columnFilters = {
-    paciente: "",
-    disciplina: ""
-};
 
 // DOM Elements
 const form = document.getElementById('visitForm');
@@ -103,8 +103,6 @@ const emptyState = document.getElementById('emptyState');
 const tableContainer = document.querySelector('.table-container');
 const periodSelect = document.getElementById('periodSelect');
 const kpiPayDate = document.getElementById('kpiPayDate');
-const filterPaciente = document.getElementById('filterPaciente');
-const filterDisciplina = document.getElementById('filterDisciplina');
 
 // Initialize App
 function init() {
@@ -148,14 +146,35 @@ function init() {
         renderData();
     });
 
-    filterPaciente.addEventListener('input', (e) => {
-        columnFilters.paciente = e.target.value.toLowerCase().trim();
-        renderData();
-    });
+    // Table Search
+    const searchInput = document.getElementById('tableSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            tableSearchQuery = e.target.value;
+            renderData();
+        });
+    }
 
-    filterDisciplina.addEventListener('input', (e) => {
-        columnFilters.disciplina = e.target.value.toLowerCase().trim();
-        renderData();
+    // Sort Headers
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (sortColumn === col) {
+                sortAscending = !sortAscending;
+            } else {
+                sortColumn = col;
+                sortAscending = sortColumn === 'fecha' || sortColumn === 'ingresoTotal' ? false : true;
+            }
+            
+            document.querySelectorAll('th.sortable .sort-icon').forEach(icon => icon.setAttribute('name', 'swap-vertical-outline'));
+            document.querySelectorAll('th.sortable').forEach(t => t.classList.remove('active-sort'));
+            
+            const iconName = sortAscending ? 'chevron-up-outline' : 'chevron-down-outline';
+            th.querySelector('.sort-icon').setAttribute('name', iconName);
+            th.classList.add('active-sort');
+            
+            renderData();
+        });
     });
 
     // Fetch from Firebase
@@ -282,25 +301,43 @@ document.getElementById('cancelEditBtn').addEventListener('click', () => {
 });
 
 function getFilteredVisits() {
-    return visits.filter(v => {
-        let pMatch = true;
-        if (currentFilterMode !== 'all') {
-            const vCycle = getPayPeriodInfo(v.fecha);
-            pMatch = (vCycle.id === currentFilterMode);
-        }
-        
-        let pacMatch = true;
-        let discMatch = true;
-        
-        if (columnFilters.paciente) {
-            pacMatch = v.paciente.toLowerCase().includes(columnFilters.paciente);
-        }
-        if (columnFilters.disciplina) {
-            discMatch = v.disciplina.toLowerCase().includes(columnFilters.disciplina);
-        }
-        
-        return pMatch && pacMatch && discMatch;
+    let filtered = visits.filter(v => {
+        if (currentFilterMode === 'all') return true;
+        const vCycle = getPayPeriodInfo(v.fecha);
+        return vCycle.id === currentFilterMode;
     });
+
+    if (tableSearchQuery) {
+        const q = tableSearchQuery.toLowerCase();
+        filtered = filtered.filter(v => {
+            return (
+                (v.paciente && v.paciente.toLowerCase().includes(q)) ||
+                (v.disciplina && v.disciplina.toLowerCase().includes(q)) ||
+                (v.fecha && v.fecha.includes(q)) ||
+                (v.ingresoTotal && v.ingresoTotal.toString().includes(q))
+            );
+        });
+    }
+
+    filtered.sort((a, b) => {
+        let valA = a[sortColumn];
+        let valB = b[sortColumn];
+        
+        if (sortColumn === 'fecha') {
+            valA = new Date(`${a.fecha}T${a.hInicio || '12:00'}`).getTime();
+            valB = new Date(`${b.fecha}T${b.hInicio || '12:00'}`).getTime();
+        } else if (typeof valA === 'string') {
+            valA = valA.toLowerCase();
+            valB = valB.toLowerCase();
+            if (valA < valB) return sortAscending ? -1 : 1;
+            if (valA > valB) return sortAscending ? 1 : -1;
+            return 0;
+        }
+        
+        return sortAscending ? (valA - valB) : (valB - valA);
+    });
+
+    return filtered;
 }
 
 function renderData() {
@@ -433,9 +470,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     
-    let extraLabel = "";
-    if (columnFilters.paciente) extraLabel += `_${columnFilters.paciente.toUpperCase()}`;
-    const fileName = currentFilterMode === 'all' ? `HomeHealth_TODO_Historial${extraLabel}.csv` : `HomeHealth_${allGeneratedCycles[currentFilterMode].label.replace(/ /g,'_')}${extraLabel}.csv`;
+    const fileName = currentFilterMode === 'all' ? "HomeHealth_TODO_Historial.csv" : `HomeHealth_${allGeneratedCycles[currentFilterMode].label.replace(/ /g,'_')}.csv`;
     link.setAttribute("download", fileName);
     
     document.body.appendChild(link);
@@ -496,9 +531,7 @@ document.getElementById('exportPdfBtn').addEventListener('click', () => {
         styles: { fontSize: 10 }
     });
 
-    let extraLabel = "";
-    if (columnFilters.paciente) extraLabel += `_${columnFilters.paciente.toUpperCase()}`;
-    const fileName = currentFilterMode === 'all' ? `HomeHealth_Report${extraLabel}.pdf` : `HomeHealth_${periodName.replace(/ /g,'_')}${extraLabel}.pdf`;
+    const fileName = currentFilterMode === 'all' ? "HomeHealth_Report.pdf" : `HomeHealth_${periodName.replace(/ /g,'_')}.pdf`;
     doc.save(fileName);
 });
 
