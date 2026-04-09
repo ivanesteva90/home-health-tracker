@@ -177,6 +177,17 @@ function init() {
         });
     });
 
+    // Military Time Mask
+    const enforceMilitaryMask = (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length >= 3) {
+            v = v.substring(0, 2) + ':' + v.substring(2, 4);
+        }
+        e.target.value = v;
+    };
+    document.getElementById('horaInicio').addEventListener('input', enforceMilitaryMask);
+    document.getElementById('horaFin').addEventListener('input', enforceMilitaryMask);
+
     // Fetch from Firebase
     try {
         const q = query(collection(db, "visits"), orderBy("createdAt", "desc"));
