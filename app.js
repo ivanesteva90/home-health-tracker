@@ -3,7 +3,7 @@ import {
     getFirestore, collection, addDoc, getDocs, onSnapshot, deleteDoc, doc, query, orderBy 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ====== CONFIGURACION REAL DE FIREBASE ======
+// ====== CONFIGURacion REAL DE FIREBASE ======
 const firebaseConfig = {
   apiKey: "AIzaSyCoSfscnb-parNn3H7REbgsXM02J3WZ-40",
   authDomain: "home-health-tracker-a3561.firebaseapp.com",
@@ -14,7 +14,6 @@ const firebaseConfig = {
   measurementId: "G-X673Y7B1KG"
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -50,6 +49,45 @@ const visitRates = [
 let visits = [];
 let mileRate = parseFloat(localStorage.getItem('hh_mile_rate')) || 0.67;
 
+// --- PAYROLL ENGINE ---
+const EPOCH_DATE = new Date("2025-10-18T12:00:00Z"); // Use noon to avoid timezone shift
+
+function getPayPeriodInfo(dateStr) {
+    const targetDate = new Date(dateStr + "T12:00:00Z");
+    const diffTime = targetDate - EPOCH_DATE;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    const cycleIndex = Math.floor(diffDays / 14);
+    
+    const startMs = EPOCH_DATE.getTime() + (cycleIndex * 14 * 24 * 60 * 60 * 1000);
+    const endMs = startMs + (13 * 24 * 60 * 60 * 1000);
+    const payMs = endMs + (14 * 24 * 60 * 60 * 1000);
+    
+    const fmt = (ms) => new Date(ms).toISOString().split('T')[0];
+    const sDate = fmt(startMs);
+    const eDate = fmt(endMs);
+    const pDate = fmt(payMs);
+    
+    const labelSDate = new Date(startMs).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+    const labelEDate = new Date(endMs).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+    const labelPDate = new Date(payMs).toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' });
+    
+    return {
+        id: `c_${cycleIndex}`,
+        start: sDate,
+        end: eDate,
+        payDate: pDate,
+        readablePayDate: labelPDate,
+        label: `${labelSDate} al ${labelEDate}`
+    };
+}
+
+const todayStr = new Date().toISOString().split('T')[0];
+const todayCycle = getPayPeriodInfo(todayStr);
+
+let currentFilterMode = todayCycle.id;
+let allGeneratedCycles = {};
+
 // DOM Elements
 const form = document.getElementById('visitForm');
 const selDisciplina = document.getElementById('disciplina');
@@ -57,10 +95,11 @@ const txtTarifaPreview = document.getElementById('tarifaPreview');
 const tbody = document.getElementById('historyBody');
 const emptyState = document.getElementById('emptyState');
 const tableContainer = document.querySelector('.table-container');
+const periodSelect = document.getElementById('periodSelect');
+const kpiPayDate = document.getElementById('kpiPayDate');
 
 // Initialize App
 function init() {
-    // Populate Select Options
     visitRates.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.rate;
@@ -71,34 +110,60 @@ function init() {
     document.getElementById('fecha').valueAsDate = new Date();
     document.getElementById('mileRate').value = mileRate;
 
-    // Conectar la transmisión en vivo de la Nube (Firestore)
+    // Populate the Dropdown Filter (Load from 10 periods ago to 2 periods in future)
+    const currentIdx = parseInt(todayCycle.id.split('_')[1]);
+    
+    const optAll = document.createElement('option');
+    optAll.value = 'all';
+    optAll.textContent = "Todo el Historial (No Filters)";
+    periodSelect.appendChild(optAll);
+
+    for (let i = currentIdx + 2; i >= currentIdx - 20; i--) {
+        // Calculate a sample date within that cycle
+        const sampleMs = EPOCH_DATE.getTime() + (i * 14 * 24 * 60 * 60 * 1000);
+        const sampleDateStr = new Date(sampleMs).toISOString().split('T')[0];
+        const pInfo = getPayPeriodInfo(sampleDateStr);
+        
+        allGeneratedCycles[pInfo.id] = pInfo;
+        
+        const opt = document.createElement('option');
+        opt.value = pInfo.id;
+        opt.textContent = i === currentIdx ? `📍 Actual: ${pInfo.label}` : pInfo.label;
+        periodSelect.appendChild(opt);
+    }
+    
+    periodSelect.value = currentFilterMode;
+
+    // Event for Filter
+    periodSelect.addEventListener('change', (e) => {
+        currentFilterMode = e.target.value;
+        renderData();
+    });
+
+    // Fetch from Firebase
     try {
-        const q = query(collection(db, "visits"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "visits"), orderBy("fecha", "desc"), orderBy("hInicio", "desc"));
         onSnapshot(q, (snapshot) => {
             visits = [];
             snapshot.forEach((doc) => {
                 visits.push({ id: doc.id, ...doc.data() });
             });
-            renderTable();
-            updateDashboard();
+            renderData();
         });
     } catch(err) {
-        console.error("Error conectando a Firebase. Faltan llaves.", err);
+        console.error("Error conectando a Firebase.", err);
     }
 }
 
-// Format Currency
 const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-// Event: Select change for preview
 selDisciplina.addEventListener('change', (e) => {
     const rate = parseFloat(e.target.value);
     txtTarifaPreview.textContent = formatMoney(rate);
 });
 
-// Event: Save Rate
 document.getElementById('saveRateBtn').addEventListener('click', () => {
     const newVal = parseFloat(document.getElementById('mileRate').value);
     if (!isNaN(newVal)) {
@@ -108,7 +173,6 @@ document.getElementById('saveRateBtn').addEventListener('click', () => {
     }
 });
 
-// Calculate Hours Difference
 function getHoursDiff(start, end) {
     const today = "1970-01-01";
     const t1 = new Date(`${today}T${start}`);
@@ -118,13 +182,10 @@ function getHoursDiff(start, end) {
     return diff || 0;
 }
 
-// Event: Submit Form
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // UI Loading
     const btnSubmit = form.querySelector('button[type="submit"]');
-    btnSubmit.textContent = "Grabando en la nube...";
+    btnSubmit.textContent = "Grabando nube...";
     btnSubmit.disabled = true;
 
     try {
@@ -143,23 +204,12 @@ form.addEventListener('submit', async (e) => {
         const ingresoMillas = millas * mileRate;
         const ingresoTotal = baseRate + ingresoMillas;
 
-        // Subir documento a Colección Firebase
         await addDoc(collection(db, "visits"), {
-            fecha: fecha,
-            paciente: paciente,
-            disciplina: disciplinaSelect.text,
-            hInicio: hInicio,
-            hFin: hFin,
-            horas: horas,
-            baseRate: baseRate,
-            millas: millas,
-            ingresoMillas: ingresoMillas,
-            ingresoTotal: ingresoTotal,
-            notas: notas,
-            createdAt: Date.now()
+            fecha, paciente, disciplina: disciplinaSelect.text,
+            hInicio, hFin, horas, baseRate, millas, ingresoMillas,
+            ingresoTotal, notas, createdAt: Date.now()
         });
 
-        // Reset
         document.getElementById('paciente').value = '';
         selDisciplina.selectedIndex = 0;
         document.getElementById('horaInicio').value = '';
@@ -168,7 +218,7 @@ form.addEventListener('submit', async (e) => {
         document.getElementById('notas').value = '';
         txtTarifaPreview.textContent = '$0.00';
     } catch(e) {
-        alert("Error al subir nube: Verifica si pegaste las llaves CONFIG correctas.");
+        alert("Error nube: Verifica conexión.");
         console.error(e);
     } finally {
         btnSubmit.textContent = "Guardar Visita";
@@ -176,17 +226,33 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-// Logic: Render Table
-function renderTable() {
+function getFilteredVisits() {
+    return visits.filter(v => {
+        if (currentFilterMode === 'all') return true;
+        const vCycle = getPayPeriodInfo(v.fecha);
+        return vCycle.id === currentFilterMode;
+    });
+}
+
+function renderData() {
+    const filtered = getFilteredVisits();
+    
+    // 1. Render Table
     tbody.innerHTML = '';
-    if (visits.length === 0) {
+    if (filtered.length === 0) {
         emptyState.classList.add('active-empty');
         tableContainer.style.display = 'none';
+        
+        if (currentFilterMode === 'all') {
+            emptyState.querySelector('p').textContent = "No hay histórico en la nube.";
+        } else {
+            emptyState.querySelector('p').textContent = "No tienes dinero registrado en esta quincena.";
+        }
     } else {
         emptyState.classList.remove('active-empty');
         tableContainer.style.display = 'block';
         
-        visits.forEach(v => {
+        filtered.forEach(v => {
             const tr = document.createElement('tr');
             const fDate = new Date(v.fecha + "T12:00:00").toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' });
             
@@ -204,31 +270,12 @@ function renderTable() {
             tbody.appendChild(tr);
         });
     }
-}
 
-// Logic: Delete Document Nube
-window.deleteVisit = async (id) => {
-    if (confirm("¿Borrar permanentemente este registro de la base de datos?")) {
-        await deleteDoc(doc(db, "visits", id));
-    }
-};
-
-// Event: Clear All
-document.getElementById('clearAllBtn').addEventListener('click', async () => {
-    if (visits.length > 0 && confirm("¿Borrar TODO en vivo de la nube? Esto borrará documento por documento.")) {
-        // En firebase borrar colegios completos desde cliente requiere borrar documento a documento
-        for(let v of visits) {
-            await deleteDoc(doc(db, "visits", v.id));
-        }
-    }
-});
-
-// Logic: Update KPI Dashboard
-function updateDashboard() {
-    const tVisitas = visits.length;
-    const tIngresos = visits.reduce((sum, v) => sum + v.ingresoTotal, 0);
-    const tMillas = visits.reduce((sum, v) => sum + v.millas, 0);
-    const tHoras = visits.reduce((sum, v) => sum + v.horas, 0);
+    // 2. Render KPI
+    const tVisitas = filtered.length;
+    const tIngresos = filtered.reduce((sum, v) => sum + v.ingresoTotal, 0);
+    const tMillas = filtered.reduce((sum, v) => sum + v.millas, 0);
+    const tHoras = filtered.reduce((sum, v) => sum + v.horas, 0);
     
     let avgHora = 0;
     if (tHoras > 0) avgHora = tIngresos / tHoras;
@@ -237,17 +284,40 @@ function updateDashboard() {
     document.getElementById('kpiIngresos').textContent = formatMoney(tIngresos);
     document.getElementById('kpiMillas').textContent = tMillas.toFixed(1);
     document.getElementById('kpiHora').textContent = formatMoney(avgHora) + '/hr';
+
+    // Update Pay Date Helper
+    if (currentFilterMode === 'all') {
+        kpiPayDate.textContent = "📅 Mostrando Ganancias de Vida";
+    } else {
+        const cycleMeta = allGeneratedCycles[currentFilterMode] || todayCycle;
+        kpiPayDate.textContent = `📅  Se cobra el: ${cycleMeta.readablePayDate}`;
+    }
 }
 
-// Event: Export CSV
+window.deleteVisit = async (id) => {
+    if (confirm("¿Borrar permanentemente este registro de la base de datos?")) {
+        await deleteDoc(doc(db, "visits", id));
+    }
+};
+
+document.getElementById('clearAllBtn').addEventListener('click', async () => {
+    const filtered = getFilteredVisits();
+    if (filtered.length > 0 && confirm("¿Borrar permanentemente todos estos registros mostrados?")) {
+        for(let v of filtered) {
+            await deleteDoc(doc(db, "visits", v.id));
+        }
+    }
+});
+
 document.getElementById('exportBtn').addEventListener('click', () => {
-    if (visits.length === 0) return alert("No hay datos vivos.");
+    const filtered = getFilteredVisits();
+    if (filtered.length === 0) return alert("No hay datos en este período para exportar.");
 
     const headers = ["Fecha", "Paciente", "Disciplina", "Hora Inicio", "Hora Fin", "Horas Trabajadas", "Tarifa Visita ($)", "Millas", "Reembolso Millas ($)", "Ingreso Total ($)", "Tarifa Real/Hr ($)", "Notas"];
     
     let csvContent = "data:text/csv;charset=utf-8," 
         + headers.join(",") + "\n"
-        + visits.map(v => {
+        + filtered.map(v => {
             const hrRate = v.horas > 0 ? (v.ingresoTotal / v.horas).toFixed(2) : "0.00";
             return `"${v.fecha}","${v.paciente}","${v.disciplina}","${v.hInicio}","${v.hFin}","${v.horas.toFixed(2)}","${v.baseRate.toFixed(2)}","${v.millas.toFixed(1)}","${v.ingresoMillas.toFixed(2)}","${v.ingresoTotal.toFixed(2)}","${hrRate}","${(v.notas || "").replace(/"/g, '""')}"`;
         }).join("\n");
@@ -255,7 +325,10 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `HomeHealth_LiveExport_${new Date().toISOString().split('T')[0]}.csv`);
+    
+    const fileName = currentFilterMode === 'all' ? "HomeHealth_TODO_Historial.csv" : `HomeHealth_${allGeneratedCycles[currentFilterMode].label.replace(/ /g,'_')}.csv`;
+    link.setAttribute("download", fileName);
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

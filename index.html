@@ -24,6 +24,13 @@
         </header>
 
         <!-- KPI Dashboard -->
+        <div class="dashboard-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap: wrap; gap:10px;">
+            <h2 style="margin:0; font-size:1.2rem; font-weight:600; color:var(--text-main);">Visión de Nómina</h2>
+            <div class="pay-period-selector" style="display:flex; align-items:center; gap:8px; background:white; padding:6px 12px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border:1px solid var(--border);">
+                <label for="periodSelect" style="font-size:0.85rem; font-weight:600; color:var(--text-light); display:flex; align-items:center; gap:5px;"><ion-icon name="calendar-clear-outline"></ion-icon> Período:</label>
+                <select id="periodSelect" style="border:none; background:transparent; font-weight:700; font-size:0.9rem; color:var(--primary); cursor:pointer; min-width:200px; outline:none; text-wrap: nowrap;"></select>
+            </div>
+        </div>
         <section class="dashboard">
             <div class="kpi-card kpi-blue">
                 <div class="kpi-icon"><ion-icon name="people-outline"></ion-icon></div>
@@ -37,6 +44,7 @@
                 <div class="kpi-info">
                     <span class="kpi-label">Ingresos Totales</span>
                     <span class="kpi-value" id="kpiIngresos">$0.00</span>
+                    <span id="kpiPayDate" style="display:block; font-size:0.75rem; color:var(--text-light); margin-top:2px; font-weight:500;">📅 Cobro Estimado: --</span>
                 </div>
             </div>
             <div class="kpi-card kpi-orange">
