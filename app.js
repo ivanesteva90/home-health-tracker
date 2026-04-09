@@ -142,7 +142,7 @@ function init() {
 
     // Fetch from Firebase
     try {
-        const q = query(collection(db, "visits"), orderBy("fecha", "desc"), orderBy("hInicio", "desc"));
+        const q = query(collection(db, "visits"), orderBy("createdAt", "desc"));
         onSnapshot(q, (snapshot) => {
             visits = [];
             snapshot.forEach((doc) => {
